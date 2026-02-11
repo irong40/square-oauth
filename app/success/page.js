@@ -2,9 +2,18 @@
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 
+const errorMessages = {
+  no_code: 'Authorization code was not received from Square.',
+  token_error: 'Failed to obtain access token from Square.',
+  request_failed: 'Could not communicate with Square. Please try again.',
+  square_api_error: 'Square rejected the authorization request.',
+  db_store_failed: 'Connected to Square but failed to save credentials. Please try again.',
+  missing_config: 'Server is misconfigured. Contact the administrator.',
+};
+
 function SuccessContent() {
   const searchParams = useSearchParams();
-  const token = searchParams.get('token');
+  const status = searchParams.get('status');
   const merchant = searchParams.get('merchant');
   const error = searchParams.get('error');
 
@@ -12,20 +21,18 @@ function SuccessContent() {
     return (
       <div style={{ padding: '48px', textAlign: 'center' }}>
         <h1 style={{ color: '#DC3545' }}>Authorization Failed</h1>
-        <p>Error: {error}</p>
-        <a href="/">Try Again</a>
+        <p>{errorMessages[error] || 'An unknown error occurred.'}</p>
+        <a href="/" style={{ color: '#006AFF', marginTop: '16px', display: 'inline-block' }}>Try Again</a>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '48px', maxWidth: '600px', margin: '0 auto' }}>
-      <h1 style={{ color: '#28A745' }}>Success!</h1>
+    <div style={{ padding: '48px', maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
+      <h1 style={{ color: '#28A745' }}>Connected Successfully!</h1>
       {merchant && <p><strong>Merchant ID:</strong> {merchant}</p>}
-      <p><strong>Access Token:</strong></p>
-      <div style={{ background: '#f5f5f5', padding: '12px', borderRadius: '6px', fontFamily: 'monospace', wordBreak: 'break-all', fontSize: '12px' }}>{token}</div>
-      <button onClick={() => { navigator.clipboard.writeText(token); alert('Copied!'); }} style={{ marginTop: '16px', background: '#2D5A3D', color: 'white', padding: '12px 24px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Copy Token</button>
-      <p style={{ color: '#DC3545', marginTop: '16px' }}>Save this token now!</p>
+      <p style={{ color: '#666', marginTop: '16px' }}>Your Square account has been connected and your credentials have been securely stored.</p>
+      <p style={{ color: '#666', marginTop: '8px' }}>You can close this window.</p>
     </div>
   );
 }
