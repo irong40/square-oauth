@@ -23,6 +23,10 @@ export async function GET(request) {
     ? 'https://connect.squareup.com'
     : 'https://connect.squareupsandbox.com';
 
+  // Do all async work before calling redirect() — redirect() throws in Next.js
+  // and must not be inside try/catch
+  let redirectPath = '/success?error=request_failed';
+
   try {
     const response = await fetch(`${baseUrl}/oauth2/token`, {
       method: 'POST',
@@ -38,19 +42,19 @@ export async function GET(request) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Square token exchange failed:', response.status, data);
-      redirect('/success?error=square_api_error');
-    }
-
-    if (data.access_token) {
-      // Store tokens in Supabase
+      console.error('Square token exchange failed:', response.status, JSON.stringify(data));
+      redirectPath = '/success?error=square_api_error';
+    } else if (!data.access_token) {
+      console.error('No access_token in response:', JSON.stringify(data));
+      redirectPath = '/success?error=token_error';
+    } else {
+      // Token exchange succeeded — store in Supabase
       const supabaseUrl = process.env.SUPABASE_URL;
       const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
       if (supabaseUrl && supabaseServiceKey) {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        // Square OAuth tokens expire 30 days from grant
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 30);
 
@@ -68,19 +72,19 @@ export async function GET(request) {
 
         if (dbError) {
           console.error('Failed to store token in DB:', dbError);
-          redirect('/success?error=db_store_failed&merchant=' + encodeURIComponent(data.merchant_id || ''));
-          return;
+          redirectPath = '/success?error=db_store_failed&merchant=' + encodeURIComponent(data.merchant_id || '');
+        } else {
+          redirectPath = '/success?status=connected&merchant=' + encodeURIComponent(data.merchant_id || '');
         }
       } else {
         console.error('Supabase credentials not configured - tokens not stored');
+        redirectPath = '/success?status=connected&merchant=' + encodeURIComponent(data.merchant_id || '');
       }
-
-      redirect('/success?status=connected&merchant=' + encodeURIComponent(data.merchant_id || ''));
-    } else {
-      redirect('/success?error=token_error');
     }
   } catch (err) {
     console.error('OAuth callback error:', err);
-    redirect('/success?error=request_failed');
+    redirectPath = '/success?error=request_failed';
   }
+
+  redirect(redirectPath);
 }
